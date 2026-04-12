@@ -1,30 +1,93 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
-    <rect width="1200" height="630" fill="#111827" />
-    <rect x="40" y="40" width="1120" height="550" rx="12" ry="12" fill="#1f2937" stroke="#374151" stroke-width="2" />
-    <!-- Terminal header -->
-    <circle cx="80" cy="80" r="10" fill="#ef4444" />
-    <circle cx="120" cy="80" r="10" fill="#eab308" />
-    <circle cx="160" cy="80" r="10" fill="#22c55e" />
-    <text x="600" y="86" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="22" text-anchor="middle">guest@late.sh: ~</text>
-    <line x1="40" y1="120" x2="1160" y2="120" stroke="#374151" stroke-width="2" />
-    
-    <!-- Content -->
-    <!-- Green prompt arrow and command -->
-    <text x="100" y="240" fill="#22c55e" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-weight="bold" font-size="72">➜</text>
-    <text x="160" y="240" fill="#f3f4f6" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-weight="bold" font-size="72">ssh late.sh<tspan fill="#22c55e" opacity="0.8">_</tspan></text>
-    
-    <text x="100" y="360" fill="#d1d5db" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="36">A cozy terminal clubhouse for developers.</text>
-    
-    <!-- Bullet points -->
-    <text x="100" y="460" fill="#22c55e" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="32">✓</text>
-    <text x="140" y="460" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="32">Multiplayer Arcade</text>
-    
-    <text x="560" y="460" fill="#22c55e" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="32">✓</text>
-    <text x="600" y="460" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="32">Daily Streaks</text>
-    
-    <text x="100" y="520" fill="#22c55e" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="32">✓</text>
-    <text x="140" y="520" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="32">Lofi &amp; Ambient Beats</text>
-    
-    <text x="560" y="520" fill="#22c55e" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="32">✓</text>
-    <text x="600" y="520" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-size="32">Developer Chat</text>
+  <defs>
+    <radialGradient id="candle" cx="32%" cy="42%" r="75%">
+      <stop offset="0%" stop-color="#241810" stop-opacity="1" />
+      <stop offset="55%" stop-color="#140d09" stop-opacity="1" />
+      <stop offset="100%" stop-color="#0a0604" stop-opacity="1" />
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="40" />
+    </filter>
+  </defs>
+
+  <!-- Warm dark background: late-night coffee shop -->
+  <rect width="1200" height="630" fill="url(#candle)" />
+
+  <!-- Soft amber candlelight behind the command -->
+  <circle cx="360" cy="280" r="240" fill="#B8782C" opacity="0.10" filter="url(#soft)" />
+
+  <!-- Outer panel, subtle -->
+  <rect x="32" y="32" width="1136" height="566" rx="18" ry="18"
+        fill="none" stroke="#44382E" stroke-width="2" />
+
+  <!-- Top bar: status dot + hostname left, flavor right -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">
+    <circle cx="72" cy="82" r="5" fill="#D29436" />
+    <text x="88" y="88" fill="#8A7660" font-size="20">late.sh</text>
+    <text x="1134" y="88" fill="#695848" font-size="18" text-anchor="end">late night, every night</text>
+    <line x1="60" y1="108" x2="1140" y2="108" stroke="#2a2018" stroke-width="1" />
+  </g>
+
+  <!-- Main command -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" font-weight="700">
+    <text x="76" y="260" fill="#B8782C" font-size="92">→</text>
+    <text x="170" y="260" fill="#C8B69E" font-size="92">ssh late.sh<tspan fill="#D29436">▌</tspan></text>
+  </g>
+
+  <!-- Tagline -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">
+    <text x="80" y="330" fill="#AF9E8A" font-size="30">a cozy terminal clubhouse for developers.</text>
+    <text x="80" y="368" fill="#695848" font-size="22">pour a coffee. pull up a chair. stay a while.</text>
+  </g>
+
+  <!-- Bonsai on the right: vector, muted greens + warm trunk -->
+  <g transform="translate(940, 150)">
+    <!-- Trunk: curved path with amber tones -->
+    <path d="M 70 220 C 68 180, 80 150, 76 120 C 72 95, 90 75, 96 55"
+          stroke="#8a5a24" stroke-width="10" stroke-linecap="round" fill="none" />
+    <path d="M 80 160 C 96 150, 108 140, 120 120"
+          stroke="#8a5a24" stroke-width="6" stroke-linecap="round" fill="none" />
+    <path d="M 72 110 C 60 100, 46 92, 36 76"
+          stroke="#8a5a24" stroke-width="6" stroke-linecap="round" fill="none" />
+    <!-- Canopy: clustered soft circles, layered shades -->
+    <g opacity="0.95">
+      <circle cx="96" cy="50" r="22" fill="#588244" />
+      <circle cx="118" cy="54" r="20" fill="#649448" />
+      <circle cx="78" cy="40" r="18" fill="#649448" />
+      <circle cx="104" cy="32" r="18" fill="#76A252" />
+      <circle cx="130" cy="72" r="16" fill="#588244" />
+      <circle cx="58" cy="58" r="16" fill="#649448" />
+      <circle cx="88" cy="62" r="14" fill="#76A252" />
+      <!-- left branch cluster -->
+      <circle cx="30" cy="72" r="14" fill="#649448" />
+      <circle cx="18" cy="84" r="12" fill="#588244" />
+      <circle cx="40" cy="90" r="12" fill="#76A252" />
+      <!-- right branch cluster -->
+      <circle cx="128" cy="118" r="14" fill="#649448" />
+      <circle cx="140" cy="108" r="12" fill="#76A252" />
+      <!-- bloom highlights -->
+      <circle cx="108" cy="42" r="4" fill="#AAC378" />
+      <circle cx="80" cy="56" r="3" fill="#AAC378" />
+      <circle cx="34" cy="80" r="3" fill="#AAC378" />
+      <circle cx="134" cy="112" r="3" fill="#AAC378" />
+    </g>
+    <!-- Pot: trapezoid with subtle rim -->
+    <path d="M 36 228 L 108 228 L 100 268 L 44 268 Z"
+          fill="#3a2a1c" stroke="#8a7660" stroke-width="2" stroke-linejoin="round" />
+    <line x1="32" y1="228" x2="112" y2="228" stroke="#AF9E8A" stroke-width="3" stroke-linecap="round" />
+    <!-- Soil -->
+    <ellipse cx="72" cy="228" rx="38" ry="3" fill="#241810" />
+  </g>
+
+  <!-- Status bar: tmux-style, warm amber accents -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">
+    <line x1="60" y1="508" x2="1140" y2="508" stroke="#2a2018" stroke-width="1" />
+    <text x="80" y="560" font-size="24">
+      <tspan fill="#D29436">♪</tspan><tspan fill="#AF9E8A">  lofi radio</tspan><tspan fill="#695848">  ·  now playing</tspan>
+      <tspan fill="#44382E">     │     </tspan>
+      <tspan fill="#D29436">●</tspan><tspan fill="#AF9E8A">  42 devs online</tspan>
+      <tspan fill="#44382E">     │     </tspan>
+      <tspan fill="#D29436">✦</tspan><tspan fill="#AF9E8A">  day 7 streak</tspan>
+    </text>
+  </g>
 </svg>
