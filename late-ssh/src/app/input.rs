@@ -58,6 +58,8 @@ enum ParsedInput {
     PageUp,
     PageDown,
     End,
+    FocusGained,
+    FocusLost,
 }
 
 /// Walk `data` and split it on inline `ESC` + `CR`/`LF` pairs (Alt+Enter).
@@ -236,6 +238,12 @@ impl Perform for VtCollector {
             // codepoint 127, others as 8 (BS). Accept both for Ctrl+Backspace.
             'u' if (p0 == Some(127) || p0 == Some(8)) && p1 == Some(5) => {
                 self.events.push(ParsedInput::CtrlBackspace);
+            }
+            'I' if intermediates.is_empty() => {
+                self.events.push(ParsedInput::FocusGained);
+            }
+            'O' if intermediates.is_empty() => {
+                self.events.push(ParsedInput::FocusLost);
             }
             'M' | 'm' if intermediates == [b'<'] && params.len() >= 3 => {
                 let scroll = match p0.unwrap_or_default() {
@@ -417,6 +425,7 @@ fn handle_parsed_input(app: &mut App, event: ParsedInput) {
     }
 
     match event {
+        ParsedInput::FocusGained | ParsedInput::FocusLost => {}
         ParsedInput::Paste(pasted) => handle_bracketed_paste(app, &pasted),
         ParsedInput::AltEnter => {
             if (ctx.screen == Screen::Dashboard || ctx.screen == Screen::Chat) && ctx.chat_composing
