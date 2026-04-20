@@ -4,12 +4,14 @@ use late_core::{
     MutexRecover,
     models::{article::NEWS_MARKER, chat_message::ChatMessage, chat_room::ChatRoom},
 };
+use ratatui::style::{Modifier, Style};
+use ratatui_textarea::{CursorMove, TextArea, WrapMode};
 use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::app::common::overlay::Overlay;
 
-use crate::app::common::{composer::ComposerState, primitives::Banner};
+use crate::app::common::{primitives::Banner, theme};
 use crate::app::help_modal::data::HelpTopic;
 use crate::state::{ActiveUser, ActiveUsers};
 
@@ -67,7 +69,7 @@ pub struct ChatState {
     room_tx: watch::Sender<Option<Uuid>>,
     pub(crate) selected_room_id: Option<Uuid>,
     pub(crate) room_jump_active: bool,
-    composer: ComposerState,
+    composer: TextArea<'static>,
     pub(crate) composing: bool,
     composer_room_id: Option<Uuid>,
     pending_send_notices: VecDeque<Uuid>,
@@ -93,6 +95,7 @@ pub struct ChatState {
     /// string identifiers stored in `users.settings.notify_kinds` ("dms", "mentions").
     pub(crate) pending_notifications: Vec<PendingNotification>,
     requested_help_topic: Option<HelpTopic>,
+    requested_settings_modal: bool,
 }
 
 pub(crate) struct PendingNotification {
@@ -139,7 +142,7 @@ impl ChatState {
             room_tx,
             selected_room_id: None,
             room_jump_active: false,
-            composer: ComposerState::new(80),
+            composer: new_chat_textarea(),
             composing: false,
             composer_room_id: None,
             pending_send_notices: VecDeque::new(),
@@ -158,27 +161,12 @@ impl ChatState {
             notifications: notifications::state::State::new(notification_service, user_id),
             pending_notifications: Vec::new(),
             requested_help_topic: None,
+            requested_settings_modal: false,
         }
     }
 
-    pub fn set_composer_text_width(&mut self, width: usize) {
-        self.composer.set_text_width(width);
-    }
-
-    pub fn sync_composer_layout(&mut self) {
-        self.composer.sync_layout();
-    }
-
-    pub(crate) fn composer_rows(&self) -> &[crate::app::common::composer::ComposerRow] {
-        self.composer.rows()
-    }
-
-    pub(crate) fn composer_text(&self) -> &str {
-        self.composer.text()
-    }
-
-    pub(crate) fn composer_cursor(&self) -> usize {
-        self.composer.cursor()
+    pub(crate) fn composer(&self) -> &TextArea<'static> {
+        &self.composer
     }
 
     pub fn is_composing(&self) -> bool {
@@ -198,6 +186,7 @@ impl ChatState {
         self.selected_message_id = None;
         self.reply_target = None;
         self.edited_message_id = None;
+        set_composer_cursor_visible(&mut self.composer, true);
     }
 
     pub fn request_list(&self) {
@@ -262,6 +251,10 @@ impl ChatState {
         self.requested_help_topic.take()
     }
 
+    pub fn take_requested_settings_modal(&mut self) -> bool {
+        std::mem::take(&mut self.requested_settings_modal)
+    }
+
     fn select_from_ids(&mut self, ids: &[Uuid], delta: isize) {
         if ids.is_empty() {
             self.selected_message_id = None;
@@ -316,6 +309,7 @@ impl ChatState {
         self.composing = true;
         self.composer_room_id = Some(room_id);
         self.edited_message_id = None;
+        set_composer_cursor_visible(&mut self.composer, true);
         None
     }
 
@@ -342,9 +336,11 @@ impl ChatState {
             return Some(Banner::error("Can only edit your own messages"));
         }
         self.edited_message_id = Some(selected_id);
-        self.composer.set_text(body);
+        self.composer = new_chat_textarea();
+        self.composer.insert_str(body);
         self.composing = true;
         self.composer_room_id = Some(room_id);
+        set_composer_cursor_visible(&mut self.composer, true);
         None
     }
 
@@ -579,10 +575,11 @@ impl ChatState {
         self.room_jump_active = false;
         self.composer_room_id = None;
         self.reply_target = None;
+        set_composer_cursor_visible(&mut self.composer, false);
     }
 
     pub fn reset_composer(&mut self) {
-        self.composer.clear();
+        self.composer = new_chat_textarea();
         self.composing = false;
         self.room_jump_active = false;
         self.composer_room_id = None;
@@ -592,7 +589,7 @@ impl ChatState {
     }
 
     fn clear_composer_after_submit(&mut self) {
-        self.composer.clear();
+        self.composer = new_chat_textarea();
         self.composing = false;
         self.room_jump_active = false;
         self.composer_room_id = None;
@@ -601,7 +598,8 @@ impl ChatState {
     }
 
     fn clear_composer_after_send(&mut self) {
-        self.composer.clear();
+        self.composer = new_chat_textarea();
+        set_composer_cursor_visible(&mut self.composer, self.composing);
         self.room_jump_active = false;
         self.reply_target = None;
         self.edited_message_id = None;
@@ -638,7 +636,7 @@ impl ChatState {
     }
 
     pub fn submit_composer(&mut self, keep_open: bool) -> Option<Banner> {
-        let body = self.composer.text().trim_end().to_string();
+        let body = self.composer.lines().join("\n").trim_end().to_string();
 
         if body.trim() == "/help" {
             self.clear_composer_after_submit();
@@ -649,6 +647,12 @@ impl ChatState {
         if body.trim() == "/music" {
             self.clear_composer_after_submit();
             self.requested_help_topic = Some(HelpTopic::Music);
+            return None;
+        }
+
+        if body.trim() == "/profile" {
+            self.clear_composer_after_submit();
+            self.requested_settings_modal = true;
             return None;
         }
 
@@ -780,50 +784,61 @@ impl ChatState {
     }
 
     pub fn composer_clear(&mut self) {
-        self.composer.clear();
+        let composing = self.composing;
+        self.composer = new_chat_textarea();
+        set_composer_cursor_visible(&mut self.composer, composing);
     }
+
     pub fn composer_backspace(&mut self) {
-        self.composer.backspace();
+        self.composer.delete_char();
     }
 
     pub fn composer_delete_right(&mut self) {
-        self.composer.delete_right();
+        self.composer.delete_next_char();
     }
 
     pub fn composer_delete_word_right(&mut self) {
-        self.composer.delete_word_right();
+        self.composer.delete_next_word();
     }
 
     pub fn composer_delete_word_left(&mut self) {
-        self.composer.delete_word_left();
+        self.composer.delete_word();
     }
 
     pub fn composer_push(&mut self, ch: char) {
-        self.composer.push(ch);
+        self.composer.insert_char(ch);
     }
 
     pub fn composer_cursor_left(&mut self) {
-        self.composer.cursor_left();
+        self.composer.move_cursor(CursorMove::Back);
     }
 
     pub fn composer_cursor_right(&mut self) {
-        self.composer.cursor_right();
+        self.composer.move_cursor(CursorMove::Forward);
     }
 
     pub fn composer_cursor_word_left(&mut self) {
-        self.composer.cursor_word_left();
+        self.composer.move_cursor(CursorMove::WordBack);
     }
 
     pub fn composer_cursor_word_right(&mut self) {
-        self.composer.cursor_word_right();
+        self.composer.move_cursor(CursorMove::WordForward);
     }
 
     pub fn composer_cursor_up(&mut self) {
-        self.composer.cursor_up();
+        self.composer.move_cursor(CursorMove::Up);
     }
 
     pub fn composer_cursor_down(&mut self) {
-        self.composer.cursor_down();
+        self.composer.move_cursor(CursorMove::Down);
+    }
+
+    pub fn composer_paste(&mut self) {
+        self.composer.paste();
+    }
+
+    pub fn composer_undo(&mut self) {
+        self.composer.undo();
     }
 
     pub fn tick(&mut self) -> Option<Banner> {
@@ -869,18 +884,19 @@ impl ChatState {
 
     pub fn update_autocomplete(&mut self) {
         // Scan backward from end of composer to find a trigger `@`
-        let bytes = self.composer.text().as_bytes();
+        let text = self.composer.lines().join("\n");
+        let bytes = text.as_bytes();
         let mut at_offset = None;
         for i in (0..bytes.len()).rev() {
             if bytes[i] == b'@' {
-                // Valid if at start or preceded by whitespace
-                if i == 0 || bytes[i - 1] == b' ' {
+                // Valid if at start or preceded by whitespace (space or newline)
+                if i == 0 || bytes[i - 1].is_ascii_whitespace() {
                     at_offset = Some(i);
                 }
                 break;
             }
-            // Stop scanning if we hit a space (no @ in this word)
-            if bytes[i] == b' ' {
+            // Stop scanning if we hit whitespace (no @ in this word)
+            if bytes[i].is_ascii_whitespace() {
                 break;
             }
         }
@@ -890,7 +906,7 @@ impl ChatState {
             return;
         };
 
-        let query = &self.composer.text()[offset + 1..];
+        let query = &text[offset + 1..];
         let query_lower = query.to_ascii_lowercase();
         let active_users = self.active_users.as_ref();
         let matches = rank_mention_matches(&self.all_usernames, &query_lower, || {
@@ -928,12 +944,12 @@ impl ChatState {
         let username = self.mention_ac.matches[self.mention_ac.selected]
             .name
             .clone();
-        let next = format!(
-            "{}@{} ",
-            &self.composer.text()[..self.mention_ac.trigger_offset],
-            username
-        );
-        self.composer.set_text(next);
+        let text = self.composer.lines().join("\n");
+        let next = format!("{}@{} ", &text[..self.mention_ac.trigger_offset], username);
+        let composing = self.composing;
+        self.composer = new_chat_textarea();
+        self.composer.insert_str(next);
+        set_composer_cursor_visible(&mut self.composer, composing);
         self.mention_ac = MentionAutocomplete::default();
     }
 
@@ -1531,6 +1547,25 @@ fn reply_preview_text(body: &str) -> String {
     }
 }
 
+pub(crate) fn new_chat_textarea() -> TextArea<'static> {
+    let mut ta = TextArea::default();
+    ta.set_placeholder_text("Type a message...");
+    ta.set_placeholder_style(Style::default().fg(theme::TEXT_DIM()));
+    ta.set_cursor_line_style(Style::default());
+    ta.set_cursor_style(Style::default());
+    ta.set_wrap_mode(WrapMode::Word);
+    ta
+}
+
+fn set_composer_cursor_visible(ta: &mut TextArea<'static>, visible: bool) {
+    let style = if visible {
+        Style::default().add_modifier(Modifier::REVERSED)
+    } else {
+        Style::default()
+    };
+    ta.set_cursor_style(style);
+}
+
 fn news_reply_preview_text(body: &str) -> Option<String> {
     let trimmed = body.trim_start();
     if !trimmed.starts_with(NEWS_MARKER) {
@@ -1552,7 +1587,6 @@ fn news_reply_preview_text(body: &str) -> Option<String> {
         preview
     })
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
