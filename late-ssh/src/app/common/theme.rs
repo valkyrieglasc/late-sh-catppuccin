@@ -211,7 +211,7 @@ const PALETTE_PURPLE: Palette = Palette {
 const PALETTE_MOCHA: Palette = Palette {
     bg_canvas: Color::Rgb(30, 30, 46),
     bg_selection: Color::Rgb(69, 71, 90),
-    bg_highlight: Color::Rgb(88, 91, 112),
+    bg_highlight: Color::Rgb(24, 24, 37),
     border_dim: Color::Rgb(49, 50, 68),
     border: Color::Rgb(88, 91, 112),
     border_active: Color::Rgb(203, 166, 247),
@@ -241,7 +241,7 @@ const PALETTE_MOCHA: Palette = Palette {
 const PALETTE_MACCHIATO: Palette = Palette {
     bg_canvas: Color::Rgb(36, 39, 58),
     bg_selection: Color::Rgb(65, 69, 89),
-    bg_highlight: Color::Rgb(73, 77, 100),
+    bg_highlight: Color::Rgb(30, 32, 48),
     border_dim: Color::Rgb(46, 49, 71),
     border: Color::Rgb(73, 77, 100),
     border_active: Color::Rgb(198, 160, 246),
@@ -271,7 +271,7 @@ const PALETTE_MACCHIATO: Palette = Palette {
 const PALETTE_FRAPPE: Palette = Palette {
     bg_canvas: Color::Rgb(48, 52, 70),
     bg_selection: Color::Rgb(81, 87, 109),
-    bg_highlight: Color::Rgb(98, 104, 128),
+    bg_highlight: Color::Rgb(41, 44, 60),
     border_dim: Color::Rgb(65, 69, 89),
     border: Color::Rgb(98, 104, 128),
     border_active: Color::Rgb(202, 158, 230),
@@ -331,7 +331,7 @@ const PALETTE_LATTE: Palette = Palette {
 const PALETTE_EGG_COFFEE: Palette = Palette {
     bg_canvas: Color::Rgb(26, 15, 13),
     bg_selection: Color::Rgb(61, 38, 32),
-    bg_highlight: Color::Rgb(177, 140, 89),
+    bg_highlight: Color::Rgb(157, 110, 59),
     border_dim: Color::Rgb(64, 45, 40),
     border: Color::Rgb(92, 70, 64),
     border_active: Color::Rgb(236, 184, 84),
