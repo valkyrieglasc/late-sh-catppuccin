@@ -356,18 +356,17 @@ impl App {
                     .iter()
                     .find(|option| option.id == *id)
                     .map(|option| {
-                        let unread = self
-                            .chat
-                            .unread_counts
-                            .get(&option.id)
-                            .copied()
-                            .unwrap_or(0);
-                        (
-                            option.id,
-                            option.label.clone(),
-                            Some(option.id) == active,
-                            unread,
-                        )
+                        let is_active = Some(option.id) == active;
+                        let unread = if is_active {
+                            0
+                        } else {
+                            self.chat
+                                .unread_counts
+                                .get(&option.id)
+                                .copied()
+                                .unwrap_or(0)
+                        };
+                        (option.id, option.label.clone(), is_active, unread)
                     })
             })
             .collect();
@@ -407,6 +406,19 @@ impl App {
         }
         self.dashboard_previous_favorite_index = Some(current);
         self.dashboard_favorite_index = slot;
+    }
+
+    pub(crate) fn select_dashboard_favorite_room(&mut self, room_id: Uuid) {
+        let Some(slot) = self
+            .profile_state
+            .profile()
+            .favorite_room_ids
+            .iter()
+            .position(|id| *id == room_id)
+        else {
+            return;
+        };
+        self.jump_dashboard_favorite(slot);
     }
 
     /// Vim-alternate-buffer style jump: swap the current and previous
