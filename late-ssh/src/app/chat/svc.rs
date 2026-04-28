@@ -15,7 +15,9 @@ use late_core::{
     db::Db,
     models::{
         chat_message::{ChatMessage, ChatMessageParams},
-        chat_message_reaction::{ChatMessageReaction, ChatMessageReactionSummary},
+        chat_message_reaction::{
+            ChatMessageReaction, ChatMessageReactionOwners, ChatMessageReactionSummary,
+        },
         chat_room::ChatRoom,
         chat_room_member::ChatRoomMember,
         user::User,
@@ -235,6 +237,16 @@ pub enum ChatEvent {
         message: String,
     },
     RoomMembersListFailed {
+        user_id: Uuid,
+        message: String,
+    },
+    ReactionOwnersListed {
+        user_id: Uuid,
+        message_id: Uuid,
+        owners: Vec<ChatMessageReactionOwners>,
+        usernames: HashMap<Uuid, String>,
+    },
+    ReactionOwnersListFailed {
         user_id: Uuid,
         message: String,
     },
@@ -1126,6 +1138,57 @@ impl ChatService {
         };
 
         Ok((title, members))
+    }
+
+    pub fn list_reaction_owners_task(&self, user_id: Uuid, message_id: Uuid) {
+        let service = self.clone();
+        let span = info_span!(
+            "chat.list_reaction_owners_task",
+            user_id = %user_id,
+            message_id = %message_id
+        );
+        tokio::spawn(
+            async move {
+                let event = match service.list_reaction_owners(user_id, message_id).await {
+                    Ok((owners, usernames)) => ChatEvent::ReactionOwnersListed {
+                        user_id,
+                        message_id,
+                        owners,
+                        usernames,
+                    },
+                    Err(e) => ChatEvent::ReactionOwnersListFailed {
+                        user_id,
+                        message: e.to_string(),
+                    },
+                };
+                let _ = service.evt_tx.send(event);
+            }
+            .instrument(span),
+        );
+    }
+
+    async fn list_reaction_owners(
+        &self,
+        user_id: Uuid,
+        message_id: Uuid,
+    ) -> Result<(Vec<ChatMessageReactionOwners>, HashMap<Uuid, String>)> {
+        let client = self.db.get().await?;
+        let message = ChatMessage::get(&client, message_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Message not found"))?;
+        let is_member = ChatRoomMember::is_member(&client, message.room_id, user_id).await?;
+        if !is_member {
+            anyhow::bail!("You are not a member of this room");
+        }
+        let owners = ChatMessageReaction::list_owners_for_message(&client, message_id).await?;
+        let mut owner_ids: Vec<Uuid> = owners
+            .iter()
+            .flat_map(|reaction| reaction.user_ids.iter().copied())
+            .collect();
+        owner_ids.sort();
+        owner_ids.dedup();
+        let usernames = User::list_usernames_by_ids(&client, &owner_ids).await?;
+        Ok((owners, usernames))
     }
 
     pub fn list_public_rooms_task(&self, user_id: Uuid) {

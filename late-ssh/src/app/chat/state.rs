@@ -6,8 +6,10 @@ use std::{
 use late_core::{
     MutexRecover,
     models::{
-        article::NEWS_MARKER, chat_message::ChatMessage,
-        chat_message_reaction::ChatMessageReactionSummary, chat_room::ChatRoom,
+        article::NEWS_MARKER,
+        chat_message::ChatMessage,
+        chat_message_reaction::{ChatMessageReactionOwners, ChatMessageReactionSummary},
+        chat_room::ChatRoom,
     },
 };
 use ratatui_textarea::{CursorMove, Input, TextArea, WrapMode};
@@ -25,9 +27,12 @@ use super::{
     notifications::svc::NotificationService,
     showcase,
     svc::{ChatEvent, ChatService, ChatSnapshot},
+    ui_text::reaction_label,
 };
 
 pub(crate) const ROOM_JUMP_KEYS: &[u8] = b"asdfghjklqwertyuiopzxcvbnm1234567890";
+const REACTION_OWNER_DISPLAY_LIMIT: usize = 4;
+const REACTION_OWNER_COLUMNS: usize = 3;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MentionMatch {
@@ -73,6 +78,7 @@ pub struct ChatState {
     ignored_user_ids: HashSet<Uuid>,
     username_rx: watch::Receiver<Arc<Vec<String>>>,
     overlay: Option<Overlay>,
+    pending_reaction_owners_message_id: Option<Uuid>,
     pub(crate) unread_counts: HashMap<Uuid, i64>,
     pending_read_rooms: HashSet<Uuid>,
     visible_room_id: Option<Uuid>,
@@ -159,6 +165,7 @@ impl ChatState {
             ignored_user_ids: HashSet::new(),
             username_rx,
             overlay: None,
+            pending_reaction_owners_message_id: None,
             unread_counts: HashMap::new(),
             pending_read_rooms: HashSet::new(),
             visible_room_id: None,
@@ -306,6 +313,7 @@ impl ChatState {
 
     pub fn close_overlay(&mut self) {
         self.overlay = None;
+        self.pending_reaction_owners_message_id = None;
     }
 
     pub fn scroll_overlay(&mut self, delta: i16) {
@@ -378,6 +386,22 @@ impl ChatState {
 
     pub fn is_reaction_leader_active(&self) -> bool {
         self.reaction_leader_active
+    }
+
+    pub fn open_selected_message_reactions_in_room(&mut self, room_id: Uuid) -> bool {
+        self.reaction_leader_active = false;
+        let Some(message_id) = self.selected_message_in_room(room_id).map(|m| m.id) else {
+            return false;
+        };
+
+        self.overlay = Some(Overlay::dismissible(
+            "Reactions",
+            vec!["Loading reactions…".to_string()],
+        ));
+        self.pending_reaction_owners_message_id = Some(message_id);
+        self.service
+            .list_reaction_owners_task(self.user_id, message_id);
+        true
     }
 
     pub fn begin_reply_to_selected_in_room(&mut self, room_id: Uuid) -> Option<Banner> {
@@ -743,6 +767,56 @@ impl ChatState {
             return;
         }
         self.overlay = Some(Overlay::new(title, lines));
+    }
+
+    fn reaction_owner_lines(&self, owners: &[ChatMessageReactionOwners]) -> Vec<String> {
+        if owners.is_empty() {
+            return vec!["No reactions yet".to_string()];
+        }
+
+        let mut lines = Vec::new();
+        for reaction in owners {
+            if !lines.is_empty() {
+                lines.push(String::new());
+            }
+            let count = reaction.user_ids.len();
+            let noun = if count == 1 { "reaction" } else { "reactions" };
+            lines.push(format!(
+                "{} {} {}",
+                reaction_label(reaction.kind),
+                count,
+                noun
+            ));
+
+            if reaction.user_ids.is_empty() {
+                lines.push("  unknown".to_string());
+                continue;
+            }
+            let mut labels: Vec<String> = reaction
+                .user_ids
+                .iter()
+                .take(REACTION_OWNER_DISPLAY_LIMIT)
+                .map(|user_id| {
+                    self.usernames
+                        .get(user_id)
+                        .map(|name| name.trim())
+                        .filter(|name| !name.is_empty())
+                        .map(|name| format!("@{name}"))
+                        .unwrap_or_else(|| format!("@<unknown:{}>", short_user_id(*user_id)))
+                })
+                .collect();
+            let hidden_count = reaction
+                .user_ids
+                .len()
+                .saturating_sub(REACTION_OWNER_DISPLAY_LIMIT);
+            if hidden_count > 0 {
+                labels.push(format!("[+{hidden_count} more]"));
+            }
+            for row in labels.chunks(REACTION_OWNER_COLUMNS) {
+                lines.push(format!("  {}", row.join(" ")));
+            }
+        }
+        lines
     }
 
     fn ignore_list_lines(&self) -> Vec<String> {
@@ -1562,6 +1636,27 @@ impl ChatState {
                 ChatEvent::RoomMembersListFailed { user_id, message }
                     if self.user_id == user_id =>
                 {
+                    banner = Some(Banner::error(&message));
+                }
+                ChatEvent::ReactionOwnersListed {
+                    user_id,
+                    message_id,
+                    owners,
+                    usernames,
+                } if self.user_id == user_id
+                    && self.pending_reaction_owners_message_id == Some(message_id) =>
+                {
+                    self.pending_reaction_owners_message_id = None;
+                    self.usernames.extend(usernames);
+                    let lines = self.reaction_owner_lines(&owners);
+                    self.overlay = Some(Overlay::dismissible("Reactions", lines));
+                }
+                ChatEvent::ReactionOwnersListFailed { user_id, message }
+                    if self.user_id == user_id
+                        && self.pending_reaction_owners_message_id.is_some() =>
+                {
+                    self.pending_reaction_owners_message_id = None;
+                    self.overlay = None;
                     banner = Some(Banner::error(&message));
                 }
                 ChatEvent::PublicRoomsListFailed { user_id, message }
